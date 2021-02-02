@@ -1,0 +1,35 @@
+{
+    "configurations": [
+        {
+            "showDevDebugOutput": true,
+            "cwd": "${workspaceRoot}",
+            "executable": "./build/FluxPump_G474RE.elf",
+            "name": "Debug STM32 SVD",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "stlink",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32g4x.cfg"
+            ],
+            "runToMain": true,
+            "svdFile": "${workspaceRoot}/STM32G474xx.svd"
+        },
+        {
+            "showDevDebugOutput": true,
+            "cwd": "${workspaceRoot}",
+            "executable": "./build/FluxPump_G474RE.elf",
+            "name": "Debug STM32",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "preLaunchTask": "Build STM",
+            "device": "stlink",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32g4x.cfg"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "name": "STM32",
+      "includePath": [
+        "Drivers/CMSIS/DSP/Include",
+        "Drivers/CMSIS/Device/ST/STM32G4xx/Include",
+        "Drivers/CMSIS/Include",
+        "Drivers/STM32G4xx_HAL_Driver/Inc",
+        "Drivers/STM32G4xx_HAL_Driver/Inc/Legacy",
+        "Inc"
+      ],
+      "defines": [
+        "STM32G474xx",
+        "USE_HAL_DRIVER"
+      ],
+      "compilerPath": "C:\\PROGRAM FILES (X86)\\GNU ARM EMBEDDED TOOLCHAIN\\9 2020-Q2-UPDATE\\BIN\\ARM-NONE-EABI-GCC.EXE"
+    }
+  ],
+  "version": 4
+}
