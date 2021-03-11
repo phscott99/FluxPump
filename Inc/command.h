@@ -20,6 +20,9 @@
 /* Defines -------------------------------------------------------------------*/
 #define CMD_STR_MAXLEN 20 // Maximum string length of a single CLI command
 
+extern volatile uint8_t currentReadFlag;
+extern q15_t average;
+
 /* Function Prototypes -------------------------------------------------------*/
 void parseCommand(char *commandString, uint8_t length);
 HAL_StatusTypeDef startWaveform(Signal_HandleTypeDef *sig);

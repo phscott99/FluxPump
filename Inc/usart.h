@@ -44,8 +44,8 @@ extern char LPUART1_txBuffer[TX_BUFFER_SIZE]; // Make UART TX Buffer external fo
 void MX_LPUART1_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
+
 void configureUART(void);
-void UARTsprintf(const char *string);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

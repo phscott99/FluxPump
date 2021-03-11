@@ -14,6 +14,7 @@
 #include "usart.h"
 
 #include "arm_math.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,12 +28,16 @@
 void parseCommand(char *command, uint8_t length)
 {
   if     (command == NULL); // Ignore any commands of zero length
+  else if((strncmp(command, "#echo", length) == 0)) printf("#echo echo\r\n");
   else if((strncmp(command, "#T On", length) == 0) & (transformer.state == Waveform_Off))   startWaveform(&transformer);
   else if((strncmp(command, "#T Off", length) == 0) & (transformer.state == Waveform_On))   stopWaveform(&transformer);
+  else if((strncmp(command, "?T conf", length) == 0)) printf("%d, %d, %ld, %ld \r\n", transformer.config.divider, transformer.config.numHalfCycles, transformer.config.samplesPerCycle, transformer.config.startPoint);
   else if((strncmp(command, "#S1 On", length) == 0) & (transformer.state == Waveform_On))   startWaveform(&switch1);
   else if((strncmp(command, "#S1 Off", length) == 0) & (transformer.state == Waveform_On))  stopWaveform(&switch1);
   else if((strncmp(command, "#S2 On", length) == 0) & (transformer.state == Waveform_On))   startWaveform(&switch2);
   else if((strncmp(command, "#S2 Off", length) == 0) & (transformer.state == Waveform_On))  stopWaveform(&switch2);
+  else if((strncmp(command, "#I read", length) == 0)) currentReadFlag = 1;
+  else if((strncmp(command, "?I zero", length) == 0)) printf("%d \r\n", average);
 
   free(command); // Make sure to free the memory used for the string to stop memory leaks
 }

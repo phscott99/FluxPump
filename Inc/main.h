@@ -49,8 +49,8 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 #define PRESCTO1MHz ((HAL_RCC_GetSysClockFreq()/1000000)-1)
-#define DEADTIME 0x0FF
-#define HRTIM_CMP_MIN 0x0018
+#define DEADTIME 0x000
+#define HRTIM_CMP_MIN 0x017C
 #define HRTIM_CMP_MAX 0xFFF7
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC

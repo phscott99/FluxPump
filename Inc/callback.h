@@ -18,18 +18,23 @@
 #include "main.h"
 
 /* Variables -----------------------------------------------------------------*/
-extern volatile uint8_t transHalfCplt_Flag;
-extern volatile uint8_t transFullCplt_Flag;
+extern volatile uint8_t transHalfDMA_Flag;
+extern volatile uint8_t transFullDMA_Flag;
 extern volatile uint8_t switch1Cplt_Flag;
 extern volatile uint8_t switch2Cplt_Flag;
+volatile uint8_t currentHalfDMA_Flag;
+volatile uint8_t currentFullDMA_Flag;
+volatile uint8_t currentReadFlag;
 extern volatile uint8_t commandReceived_Flag;
 
 /* Function Prototypes -------------------------------------------------------*/
-void transHalfCpltCallback(DAC_HandleTypeDef *hdac);
-void transFullCpltCallback(DAC_HandleTypeDef *hdac);
+void transHalfDMACallback(DAC_HandleTypeDef *hdac);
+void transFullDMACallback(DAC_HandleTypeDef *hdac);
 void preCycleStartCallback(TIM_HandleTypeDef *htim);
 void s1BurstCpltCallback(TIM_HandleTypeDef *htim);
 void s2BurstCpltCallback(TIM_HandleTypeDef *htim);
+void currentHalfDMACallback(ADC_HandleTypeDef* hadc);
+void currentFullDMACallback(ADC_HandleTypeDef* hadc);
 void commandReceivedCallback(UART_HandleTypeDef *huart);
 
 #ifdef __cplusplus

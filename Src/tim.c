@@ -550,7 +550,7 @@ void startTimers(void)
   HAL_TIM_OC_Start_IT(switch1.gateTIM_Handle, TIM_CHANNEL_3);
   HAL_TIM_OC_Start(switch1.trigTIM_Handle, TIM_CHANNEL_1);
   HAL_TIM_OC_Start(switch2.trigTIM_Handle, TIM_CHANNEL_1);
-  HAL_TIM_OC_Start(transformer.trigTIM_Handle, TIM_CHANNEL_1);
+  HAL_TIM_OC_Start_IT(transformer.trigTIM_Handle, TIM_CHANNEL_1);
 }
 
 /**

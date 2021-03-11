@@ -12,21 +12,24 @@
 #include "dac.h"
 
 /* Variables -----------------------------------------------------------------*/
-volatile uint8_t transHalfCplt_Flag = 0;
-volatile uint8_t transFullCplt_Flag = 0;
+volatile uint8_t transHalfDMA_Flag = 0;
+volatile uint8_t transFullDMA_Flag = 0;
 volatile uint8_t switch1Cplt_Flag = 0;
 volatile uint8_t switch2Cplt_Flag = 0;
+volatile uint8_t currentHalfDMA_Flag = 0;
+volatile uint8_t currentFullDMA_Flag = 0;
+volatile uint8_t currentReadFlag = 0;
 volatile uint8_t commandReceived_Flag = 0;
 
 /* Functions -----------------------------------------------------------------*/
-void transHalfCpltCallback(DAC_HandleTypeDef *hdac)
+void transHalfDMACallback(DAC_HandleTypeDef *hdac)
 {
-  transHalfCplt_Flag = 1; 
+  transHalfDMA_Flag = 1; 
 }
 
-void transFullCpltCallback(DAC_HandleTypeDef *hdac)
+void transFullDMACallback(DAC_HandleTypeDef *hdac)
 {
-  transFullCplt_Flag = 1;
+  transFullDMA_Flag = 1;
 }
 
 void preCycleStartCallback(TIM_HandleTypeDef *htim)
@@ -46,6 +49,16 @@ void s1BurstCpltCallback(TIM_HandleTypeDef *htim)
 void s2BurstCpltCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2) switch2Cplt_Flag = 1;
+}
+
+void currentHalfDMACallback(ADC_HandleTypeDef* hadc) 
+{  
+  currentHalfDMA_Flag = 1;
+}
+
+void currentFullDMACallback(ADC_HandleTypeDef* hadc)
+{
+  currentFullDMA_Flag = 1;
 }
 
 void commandReceivedCallback(UART_HandleTypeDef *huart)

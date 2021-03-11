@@ -24,8 +24,9 @@
 #include "callback.h"
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/unistd.h> // STDOUT_FILENO, STDERR_FILENO
 char LPUART1_rxBuffer[RX_BUFFER_SIZE] = {0}; // Assign static SRAM for recieving UART messages via DMA
-char LPUART1_txBuffer[TX_BUFFER_SIZE] = {0}; // Assign static SRAM for composing UART messages to transmit
 /* USER CODE END 0 */
 
 UART_HandleTypeDef hlpuart1;
@@ -38,10 +39,10 @@ void MX_LPUART1_UART_Init(void)
 {
 
   hlpuart1.Instance = LPUART1;
-  hlpuart1.Init.BaudRate = 115200;
-  hlpuart1.Init.WordLength = UART_WORDLENGTH_8B;
+  hlpuart1.Init.BaudRate = 4000000;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_9B;
   hlpuart1.Init.StopBits = UART_STOPBITS_1;
-  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Parity = UART_PARITY_EVEN;
   hlpuart1.Init.Mode = UART_MODE_TX_RX;
   hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
@@ -164,6 +165,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+
 /**
   * @brief  Extra configuration of LPUART1 for Character match Interrupts
   *         and DMA recieve callbacks. Also clears TX and RX buffers.
@@ -177,22 +179,10 @@ void configureUART(void)
   __HAL_UART_ENABLE_IT(&hlpuart1, UART_IT_CM);
   HAL_UART_RegisterCallback(&hlpuart1, HAL_UART_RX_HALFCOMPLETE_CB_ID, commandReceivedCallback);
   HAL_UART_RegisterCallback(&hlpuart1, HAL_UART_RX_COMPLETE_CB_ID, commandReceivedCallback);
-  memset(LPUART1_txBuffer, 0, TX_BUFFER_SIZE);
   memset(LPUART1_rxBuffer, 0, RX_BUFFER_SIZE);
   HAL_UART_Receive_DMA(&hlpuart1, (uint8_t*)LPUART1_rxBuffer, RX_BUFFER_SIZE);
 }
 
-/**
-  * @brief  Prints string with newline and over LPUART1
-  * @return None
-  */
-void UARTsprintf(const char *string)
-{
-  sprintf(LPUART1_txBuffer, string);
-  strcat(LPUART1_txBuffer, "\r\n");
-  HAL_UART_Transmit(&hlpuart1, (uint8_t*)LPUART1_txBuffer, TX_BUFFER_SIZE, 100);
-  memset(LPUART1_txBuffer, 0, TX_BUFFER_SIZE);
-}
 /* USER CODE END 1 */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

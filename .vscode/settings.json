@@ -7,6 +7,7 @@
         "cmath": "c",
         "type_traits": "c",
         "cstdio": "cpp",
-        "adc.h": "c"
+        "adc.h": "c",
+        "arm_math.h": "c"
     }
 }

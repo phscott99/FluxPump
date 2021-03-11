@@ -110,9 +110,9 @@ extern Signal_HandleTypeDef switch1;
 extern Signal_HandleTypeDef switch2;
 
 /* Defines -------------------------------------------------------------------*/
-#define TRANSFORMERLUT_MAXSIZE 4000
-#define SWITCH1LUT_MAXSIZE 20000
-#define SWITCH2LUT_MAXSIZE 20000
+#define TRANSFORMERLUT_MAXSIZE 8000
+#define SWITCH1LUT_MAXSIZE 2000
+#define SWITCH2LUT_MAXSIZE 2000
 #define SWITCH_PADDING 2
 
 /* Function Prototypes -------------------------------------------------------*/

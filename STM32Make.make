@@ -68,6 +68,7 @@ Src/gpio.c \
 Src/hrtim.c \
 Src/main.c \
 Src/pid.c \
+Src/retarget.c \
 Src/signal.c \
 Src/stm32g4xx_hal_msp.c \
 Src/stm32g4xx_it.c \
