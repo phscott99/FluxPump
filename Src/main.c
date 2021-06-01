@@ -3,6 +3,9 @@
   ******************************************************************************
   * @file           : main.c
   * @brief          : Main program body
+  * This software was developed by Peter Scott (PHScott99@outlook.com) for their
+  * fourth year project at Cambridge University Engineering Department:
+  *     B-TAC1000-2 - An Embedded System for Flux Pump Control 
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -14,6 +17,7 @@
 #include "hrtim.h"
 #include "hrtim.h"
 #include "usart.h"
+#include "opamp.h"
 #include "tim.h"
 #include "gpio.h"
 
@@ -21,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 /* Custom Libraries for Flux Pump*/
 #include "signal.h"
+#include "sensor.h"
 #include "callback.h"
 #include "command.h"
 #include "pid.h"
@@ -40,11 +45,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define ARM_MATH_CM4 // Declare Cortex-M4 Architecture for ARM CMSIS Library
 
-#define KP_DEFAULT 0
-#define KI_DEFAULT 200
-#define KD_DEFAULT 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,28 +56,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-/* Allocate SRAM for Waveform LUTs */
-q15_t transformerLUT[TRANSFORMERLUT_MAXSIZE];
-q15_t switch1LUT[SWITCH1LUT_MAXSIZE + SWITCH_PADDING];
-q15_t switch2LUT[SWITCH2LUT_MAXSIZE + SWITCH_PADDING];
 
-q15_t currentBuffer[TRANSFORMERLUT_MAXSIZE];
-q15_t currentSave[TRANSFORMERLUT_MAXSIZE];
-q15_t voltageBuffer[TRANSFORMERLUT_MAXSIZE*2];
-q15_t voltageSave[TRANSFORMERLUT_MAXSIZE*2];
-
-q15_t average;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void callback_function(TIM_HandleTypeDef *htim);
+void callback_function(TIM_HandleTypeDef *htim); // Temporary function for prototyping PID control
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+// HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_4); // Use this for debugging!
 /* USER CODE END 0 */
 
 /**
@@ -87,39 +78,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-  /* Default Settings for Transformer Signal */
-  transformer.LUTLocation = transformerLUT;
-  transformer.gateTIM_Handle = &htim2; // used for starting DMA waveform
-  transformer.trigTIM_Handle = &htim15;
-  transformer.DAC_Handle = &hdac2;
-  transformer.DAC_Channel = DAC_CHANNEL_1;
-  transformer.profile.frequency = 10;
-  transformer.profile.amplitude = 0.9;
-  transformer.profile.shape = Triangle_Fast;
-
-  /* Default Settings for Switch 1 Signal */
-  switch1.LUTLocation = switch1LUT;
-  switch1.gateTIM_Handle = &htim2;
-  switch1.trigTIM_Handle = &htim3;
-  switch1.DAC_Handle = &hdac1;
-  switch1.DAC_Channel = DAC_CHANNEL_1;
-  switch1.profile.frequency = 1000;
-  switch1.profile.amplitude = 0.9;
-  switch1.profile.width = 0.02;
-  switch1.profile.center = 0.25;
-  switch1.profile.shape = Sine_Fast;
-
-  /* Default Settings for Switch 2 Signal */
-  switch2.LUTLocation = switch2LUT;
-  switch2.gateTIM_Handle = &htim5;
-  switch2.trigTIM_Handle = &htim4;
-  switch2.DAC_Handle = &hdac1;
-  switch2.DAC_Channel = DAC_CHANNEL_2;
-  switch2.profile.frequency = 2000;
-  switch2.profile.amplitude = 0.9;
-  switch2.profile.width = 0.00125;
-  switch2.profile.center = 0.75;
-  switch2.profile.shape = Sine_Fast;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -151,64 +109,60 @@ int main(void)
   MX_GPIO_Init();
   MX_LPUART1_UART_Init();
   MX_HRTIM1_Init();
-  MX_ADC2_Init();
+  MX_OPAMP3_Init();
   /* USER CODE BEGIN 2 */
-  RetargetInit(&hlpuart1);
-  PID_Init(KP_DEFAULT, KI_DEFAULT, KD_DEFAULT);
+  Retarget_Init(&hlpuart1); // Printf retargeting for LPUART1
+  PID_Init(KP_DEFAULT, KI_DEFAULT, KD_DEFAULT); // Initialises the PID instance with default gains
   resetTimers(); // Disables all the timers until we're ready for them
 
-  /* Set all DAC outputs to half of fullscale so amplifiers can be turned on */
-  forceDACOutput(&hdac1, DAC_CHANNEL_1, DAC_FULLSCALE/2);
-  forceDACOutput(&hdac1, DAC_CHANNEL_2, DAC_FULLSCALE/2);
-  forceDACOutput(&hdac2, DAC_CHANNEL_1, DAC_FULLSCALE/2);
+  /* Set all DAC outputs to half of fullscale */
+  forceDACOutput(&hdac1, DAC_CHANNEL_1, 0);
+  forceDACOutput(&hdac1, DAC_CHANNEL_2, 0);
+  forceDACOutput(&hdac2, DAC_CHANNEL_1, 0);
 
-  configureUART();
-  printf("\r\n START \r\n");
-
-  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED); // Start calibration of ADC channels
-  HAL_ADCEx_Calibration_Start(&hadc2, ADC_DIFFERENTIAL_ENDED); // Start calibration of ADC channels
+  configureUART(); // Configure character match interrupts to recognise incoming commands
+  printf("\r\n START \r\n"); // Sanity check
 
   /* Initialise Signals */
   initSignal(FluxPump_Transformer, &transformer, transHalfDMACallback, transFullDMACallback);
   initSignal(FluxPump_Switch, &switch1, NULL, s1BurstCpltCallback);
   initSignal(FluxPump_Switch, &switch2, NULL, s2BurstCpltCallback);
 
+  /* Initialise Sensors */
+  initSensor(&hallCurrent, currentHalfDMACallback, currentFullDMACallback);
+
   /* Configure Signals */
   configSignal(FluxPump_Transformer, &transformer, &switch1, &switch2);
   configSignal(FluxPump_Switch, &transformer, &switch1, NULL);
   configSignal(FluxPump_Switch, &transformer, &switch2, NULL);
+
+  /* Configure Sensors */
+  configSensor(&hallCurrent, &transformer);
   
   /* Calculate Waveform LUTs */
   calcSignal(&transformer, LUT_All);
   calcSignal(&switch1, LUT_All);
   calcSignal(&switch2, LUT_All);
 
+  /* Configure PID prototyping function to be called for every sample of the transformer LUT */
   HAL_TIM_RegisterCallback(transformer.trigTIM_Handle, HAL_TIM_OC_DELAY_ELAPSED_CB_ID, callback_function);
-  HAL_ADC_RegisterCallback(&hadc1, HAL_ADC_CONVERSION_HALF_CB_ID, currentHalfDMACallback);
-  HAL_ADC_RegisterCallback(&hadc1, HAL_ADC_CONVERSION_COMPLETE_CB_ID, currentFullDMACallback);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&currentBuffer, transformer.LUTSize);
-  HAL_ADC_Start_DMA(&hadc2, (uint32_t*)&voltageBuffer, transformer.LUTSize*2);
 
   updateTimers(); // Send update command to load preloaded values into registers
   startTimers();  // Start all timers required for flux pump signals
 
-  while(!currentHalfDMA_Flag);
-  arm_copy_q15(currentBuffer, currentSave, transformer.LUTSize/2);
-  while(!currentFullDMA_Flag);
-  arm_copy_q15(&currentBuffer[transformer.LUTSize/2], &currentSave[transformer.LUTSize/2], transformer.LUTSize/2);
-  arm_mean_q15(currentSave, transformer.LUTSize, &average);
+  /* Calibrate Sensors */
+  calibSensor(&hallCurrent);
 
   /* Start all Flux Pump Signals */
   startWaveform(&transformer);
   startWaveform(&switch1);
   startWaveform(&switch2);
 
+  /* Initialise HRTIM for PWM control of H-Bridge - this should be packaged up into a function at some point */
   HAL_HRTIM_SimpleBaseStart(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A);
   HAL_HRTIM_SimpleBaseStart(&hhrtim1, HRTIM_TIMERINDEX_TIMER_B);
   HAL_HRTIM_SimpleBaseStart_IT(&hhrtim1, HRTIM_TIMERINDEX_MASTER);
   HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1 | HRTIM_OUTPUT_TB1 | HRTIM_OUTPUT_TB2);
-
-  //hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].CMP1xR = 0xFFF7;
 
   /* USER CODE END 2 */
 
@@ -219,53 +173,70 @@ int main(void)
     if(transHalfDMA_Flag)
     { // DMA has passed the midpoint of the Transformer LUT
       transHalfDMA_Flag = 0; // Clear Flag
-      if(transformer.pendingRecalc) calcSignal(&transformer, LUT_FirstHalf); // Recalculate first half of transformer LUT if requested
+      if(transformer.updateRequest == Update_FirstHalfLUT) calcSignal(&transformer, LUT_FirstHalf); // Recalculate first half of transformer LUT if requested
       if(transformer.state == Waveform_Request_Off) stopWaveform(&transformer); // Stop the transformer waveform if requested
     }
     if(transFullDMA_Flag)
     { // DMA has passed the end of the Transformer LUT and has wrapped around to the start
-      transFullDMA_Flag = 0;
-      if(transformer.pendingRecalc) calcSignal(&transformer, LUT_SecondHalf); // Recalculate second half of transformer LUT if requested
+      transFullDMA_Flag = 0; // Clear flag
+      if(transformer.updateRequest == Update_SecondHalfLUT) calcSignal(&transformer, LUT_SecondHalf); // Recalculate second half of transformer LUT if requested
       if(transformer.state == Waveform_Request_Off) stopWaveform(&transformer); // Stop the transformer waveform if requested
     }
     if(switch1Cplt_Flag)
     { // DMA has finished switch 1 burst
       switch1Cplt_Flag = 0; // Clear Flag
-      if(switch1.pendingRecalc) calcSignal(&switch1, LUT_All); // Recalculate Switch 1 LUT if requested
+      if(switch1.updateRequest == Update_Clocks)
+      { // Reconfigure Switch 1 clocks if requested
+        stopWaveform(&switch1); // Dangerous to mess with clocks while signal is running
+        configSignal(FluxPump_Switch, &transformer, &switch1, NULL); 
+        startWaveform(&switch1);
+      }
+      if(switch1.updateRequest == Update_FirstHalfLUT) calcSignal(&switch1, LUT_All); // Recalculate Switch 1 LUT if requested
       if(switch1.state == Waveform_Request_On)  startWaveform(&switch1); // Start switch 1 waveform if requested
       if(switch1.state == Waveform_Request_Off) stopWaveform(&switch1); // Stop switch 1 waveform if requested
     }
     if(switch2Cplt_Flag)
     { // DMA has finished switch 2 burst
       switch2Cplt_Flag = 0; // Clear Flag
-      if(switch2.pendingRecalc) calcSignal(&switch2, LUT_All); // Recalculate Switch 1 LUT if requested
+      if(switch2.updateRequest == Update_Clocks)
+      { // Reconfigure Switch 2 clocks if requested
+        stopWaveform(&switch2); // Dangerous to mess with clocks while signal is running
+        configSignal(FluxPump_Switch, &transformer, &switch2, NULL);
+        startWaveform(&switch2);
+      }
+      if(switch2.updateRequest == 2) calcSignal(&switch2, LUT_All); // Recalculate Switch 2 LUT if requested
       if(switch2.state == Waveform_Request_On)  startWaveform(&switch2); // Start switch 2 waveform if requested
       if(switch2.state == Waveform_Request_Off) stopWaveform(&switch2); // Stop switch 2 waveform if requested
     }
     if(currentHalfDMA_Flag)
     {
-      currentHalfDMA_Flag = 0;
-      if(currentReadFlag == 1)
-      {
-        currentReadFlag = 2;
-        arm_copy_q15(currentBuffer, currentSave, transformer.LUTSize/2);
-        arm_copy_q15(voltageBuffer, voltageSave, transformer.LUTSize);
+      currentHalfDMA_Flag = 0; // Clear flag
+      /* Calculate some statistics of the measurement over first half of cycle */
+      arm_offset_q15(hallCurrent.BUFLocation, -hallCurrent.calib.offset, hallCurrent.BUFLocation, hallCurrent.BUFSize/2); // Remove DC offset
+      arm_min_q15(hallCurrent.BUFLocation, hallCurrent.BUFSize/2, &hallCurrent.calcs.min1, NULL); // Find minimum value
+      arm_max_q15(hallCurrent.BUFLocation, hallCurrent.BUFSize/2, &hallCurrent.calcs.max1, NULL); // Find maximum value
+      arm_rms_q15(hallCurrent.BUFLocation, hallCurrent.BUFSize/2, &hallCurrent.calcs.rms1); // Calculate RMS
+      if(hallCurrent.readFlag == 1)
+      { // If there is a request to read the measurement data, send the first half via DMA
+        hallCurrent.readFlag = 2; // Set flag so second half is also transmitted when done
+        HAL_UART_Transmit_DMA(&hlpuart1, (void *)hallCurrent.BUFLocation, sizeof(hallCurrent.BUFLocation[1])*hallCurrent.BUFSize/2);
       }
     }
     if(currentFullDMA_Flag)
     {
-      currentFullDMA_Flag = 0;
-      if(currentReadFlag == 2)
-      {
-        currentReadFlag = 0;
-        arm_copy_q15(&currentBuffer[transformer.LUTSize/2], &currentSave[transformer.LUTSize/2], transformer.LUTSize/2);
-        arm_copy_q15(&voltageBuffer[transformer.LUTSize], &voltageSave[transformer.LUTSize], transformer.LUTSize);
-        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_4);
-        for(uint16_t i = 0; i < transformer.LUTSize; i++) printf("%5d,", currentSave[i]);
-        printf("\r\n");
-        for(uint16_t i = 0; i < transformer.LUTSize; i++) printf("%5d,%5d;", voltageSave[2*i], voltageSave[2*i+1]);
-        printf("\r\n");
-        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_4);
+      currentFullDMA_Flag = 0; // Clear flag
+      /* Calculate some statistics of the measurement over first half of cycle */
+      arm_offset_q15(&hallCurrent.BUFLocation[hallCurrent.BUFSize/2], -hallCurrent.calib.offset, &hallCurrent.BUFLocation[hallCurrent.BUFSize/2], hallCurrent.BUFSize/2); // Remove DC offset
+      arm_min_q15(&hallCurrent.BUFLocation[hallCurrent.BUFSize/2], hallCurrent.BUFSize/2, &hallCurrent.calcs.min2, NULL); // Find minimum value
+      arm_max_q15(&hallCurrent.BUFLocation[hallCurrent.BUFSize/2], hallCurrent.BUFSize/2, &hallCurrent.calcs.max2, NULL); // Find maximum value
+      arm_rms_q15(&hallCurrent.BUFLocation[hallCurrent.BUFSize/2], hallCurrent.BUFSize/2, &hallCurrent.calcs.rms2); // Calculate RMS
+      /* Combine stats for first and second half and save to sensor structure */
+      hallCurrent.stats.peak = (fmax(hallCurrent.calcs.max1, hallCurrent.calcs.max2) - fmin(hallCurrent.calcs.min1, hallCurrent.calcs.min2)) / 2 * hallCurrent.conversion; // Peak amplitude is range/2
+      hallCurrent.stats.rms = sqrt(((hallCurrent.calcs.rms1*hallCurrent.calcs.rms1) + (hallCurrent.calcs.rms2*hallCurrent.calcs.rms2))/2) * hallCurrent.conversion; // Calculate overall RMS from two halves (sorta like a weighted average)
+      if(hallCurrent.readFlag == 2)
+      { // If there is a request to read the measurement data and the first half has been sent, send the second half via DMA
+        hallCurrent.readFlag = 0; // Reset read request to false
+        HAL_UART_Transmit_DMA(&hlpuart1, (void *)&hallCurrent.BUFLocation[hallCurrent.BUFSize/2], sizeof(hallCurrent.BUFLocation[hallCurrent.BUFSize/2])*hallCurrent.BUFSize/2);
       }
     }
     if(commandReceived_Flag)
@@ -367,23 +338,24 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void callback_function(TIM_HandleTypeDef * htim)
 { 
-  if(transformer.state == Waveform_On)
+  if(transformer.state == Waveform_On) // Only calculate duty cycle if the transformer waveform should be on
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_4);
-    // volatile q15_t demand = (transformer.LUTLocation[__HAL_DMA_GET_COUNTER(transformer.DAC_Handle->DMA_Handle1)-1] - DAC_FULLSCALE/2)*(32768/(2*2048));
-    // volatile q15_t measure = (currentBuffer[__HAL_DMA_GET_COUNTER((&hadc1)->DMA_Handle)-1] - average)*(32768/(2*1092));
-    // volatile q15_t error =  demand - measure;
-    // volatile q15_t duty = arm_pid_q15(&PID, error);
-    volatile q15_t duty = (transformer.LUTLocation[__HAL_DMA_GET_COUNTER(transformer.DAC_Handle->DMA_Handle1)-1]) * 13;
+    q15_t demand = transformer.LUTLocation[transformer.LUTSize - __HAL_DMA_GET_COUNTER(transformer.DAC_Handle->DMA_Handle1)]; // Determine what the current should be
+    q15_t measure = hallCurrent.BUFLocation[hallCurrent.BUFSize - __HAL_DMA_GET_COUNTER((&hadc1)->DMA_Handle)] * 2; // Measure what the most recent current measurement is
+    q15_t error =  demand - measure; // The error is the difference
 
-    // if((abs(duty) <= HRTIM_CMP_MIN) & (duty >= 0)) duty = HRTIM_CMP_MIN;
-    // else if((abs(duty) <= HRTIM_CMP_MIN) & (duty < 0)) duty = -HRTIM_CMP_MIN;
+    // volatile q15_t duty = arm_pid_q15(&PID, error); // Havent tried this yet, good luck
+    volatile int32_t duty = (demand + 0*error)/DAC_FULLSCALE * hhrtim1.Instance->sMasterRegs.MPER; // Really simple proportional control, but only if you change the 0 to something else
+
+    /* Determine the correct signals for the H-Bridge you are using */
+    if (duty > 0) hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_B].CMP1xR = 0x0000; 
+    else hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_B].CMP1xR = HRTIM_CMP_MAX; 
+
+    if((duty <= HRTIM_CMP_MIN) & (duty >= -HRTIM_CMP_MIN)) duty = 0; // There is a minimum allowable duty cycle, set to zero if duty is lower than this
+    else if (duty >=  (int32_t)(hhrtim1.Instance->sMasterRegs.MPER - HRTIM_CMP_MIN)) duty =  (hhrtim1.Instance->sMasterRegs.MPER - HRTIM_CMP_MIN); // Don't let compare register be larger than period
+    else if (duty <= -(int32_t)(hhrtim1.Instance->sMasterRegs.MPER - HRTIM_CMP_MIN)) duty = -(hhrtim1.Instance->sMasterRegs.MPER - HRTIM_CMP_MIN); // Don't let compare register be larger than period
     
-    hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].CMP1xR = 0xFFF7;
-    hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_B].CMP1xR = duty;
-    // if (duty > 0) hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_B].CMP1xR = 0x0000;
-    // else hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_B].CMP1xR = HRTIM_CMP_MAX;  
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_4);
+    hhrtim1.Instance->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].CMP1xR = abs(duty); // Take the magnitude of the duty cycle for unipolar modulation
   }
 }
 

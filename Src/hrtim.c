@@ -29,6 +29,11 @@ HRTIM_HandleTypeDef hhrtim1;
 /* HRTIM1 init function */
 void MX_HRTIM1_Init(void)
 {
+
+  /* USER CODE BEGIN HRTIM1_Init 0 */
+
+  /* USER CODE END HRTIM1_Init 0 */
+
   HRTIM_ADCTriggerCfgTypeDef pADCTriggerCfg = {0};
   HRTIM_TimeBaseCfgTypeDef pTimeBaseCfg = {0};
   HRTIM_TimerCfgTypeDef pTimerCfg = {0};
@@ -37,6 +42,9 @@ void MX_HRTIM1_Init(void)
   HRTIM_OutputCfgTypeDef pOutputCfg = {0};
   HRTIM_DeadTimeCfgTypeDef pDeadTimeCfg = {0};
 
+  /* USER CODE BEGIN HRTIM1_Init 1 */
+
+  /* USER CODE END HRTIM1_Init 1 */
   hhrtim1.Instance = HRTIM1;
   hhrtim1.Init.HRTIMInterruptResquests = HRTIM_IT_NONE;
   hhrtim1.Init.SyncOptions = HRTIM_SYNCOPTION_NONE;
@@ -64,7 +72,7 @@ void MX_HRTIM1_Init(void)
   }
   pTimeBaseCfg.Period = 0xD480;
   pTimeBaseCfg.RepetitionCounter = 0x00;
-  pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_MUL4;
+  pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_MUL32;
   pTimeBaseCfg.Mode = HRTIM_MODE_CONTINUOUS;
   if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &pTimeBaseCfg) != HAL_OK)
   {
@@ -102,9 +110,6 @@ void MX_HRTIM1_Init(void)
   }
   pTimerCfg.InterruptRequests = HRTIM_TIM_IT_NONE;
   pTimerCfg.DMARequests = HRTIM_TIM_DMA_NONE;
-  pTimerCfg.DMASrcAddress = 0x0000;
-  pTimerCfg.DMADstAddress = 0x0000;
-  pTimerCfg.DMASize = 0x1;
   pTimerCfg.PushPull = HRTIM_TIMPUSHPULLMODE_DISABLED;
   pTimerCfg.FaultEnable = HRTIM_TIMFAULTENABLE_NONE;
   pTimerCfg.FaultLock = HRTIM_TIMFAULTLOCK_READWRITE;
@@ -117,9 +122,6 @@ void MX_HRTIM1_Init(void)
   {
     Error_Handler();
   }
-  pTimerCfg.DMASrcAddress = 0x0000;
-  pTimerCfg.DMADstAddress = 0x0000;
-  pTimerCfg.DMASize = 0x1;
   pTimerCfg.DeadTimeInsertion = HRTIM_TIMDEADTIMEINSERTION_ENABLED;
   if (HAL_HRTIM_WaveformTimerConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_B, &pTimerCfg) != HAL_OK)
   {
@@ -177,6 +179,9 @@ void MX_HRTIM1_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN HRTIM1_Init 2 */
+
+  /* USER CODE END HRTIM1_Init 2 */
   HAL_HRTIM_MspPostInit(&hhrtim1);
 
 }

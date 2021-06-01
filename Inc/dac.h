@@ -36,7 +36,7 @@ extern DAC_HandleTypeDef hdac2;
 
 /* USER CODE BEGIN Private defines */
 #define DAC_MAXSAMPLERATE 1000000.0 // Maximum External DAC Sample Rate of 1MS/s
-#define DAC_FULLSCALE 4095.0 // 12 Bit DAC
+#define DAC_FULLSCALE 32767.0 // 12 Bit DAC, Signed Format, Left Justified but as a float
 /* USER CODE END Private defines */
 
 void MX_DAC1_Init(void);

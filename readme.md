@@ -30,34 +30,32 @@
 
 Samples for signal waveforms are held in Look Up Tables stored in SRAM
 
-| Signal | Source | Pin | Parameters |
-| ----------- | ----------- | ----------- | ----------- |
-| Transformer | DAC2 OUT1 | PA6 | Shape, Frequency, Amplitude |
-| Switch 1 | DAC1 OUT1 | PA4 | Shape, Frequency, Amplitude, Burst Width, Burst Centerpoint |
-| Switch 2 | DAC1 OUT2 | PA5 | Shape, Frequency, Amplitude, Burst Width, Burst Centerpoint |
+| Signal | Source | Pin | Connector | Parameters |
+| ----------- | ----------- | ----------- | ----------- | ----------- |
+| Transformer | DAC2 OUT1 | PA6 | CN10,P13 | Shape, Frequency, Amplitude |
+| Switch 1 | DAC1 OUT1 | PA4 | CN7,P32 | Shape, Frequency, Amplitude, Burst Width, Burst Center |
+| Switch 2 | DAC1 OUT2 | PA5 | CN10,P11 | Shape, Frequency, Amplitude, Burst Width, Burst Center |
 
 ### Waveform Shapes
 
 | Shape | Descirption |
 | ----------- | ----------- |
 | Constant | Sets all of LUT to same value |
-| Sine | Uses standard (slow) sin function to calculate sine |
-| Cosine | Uses standard (slow) cos function to calculate cosine |
-| Triangle | Uses a continuous method using the standard (slow) trig functions |
+| Sine | Uses CMSIS DSP arm_sin_q15 function to calculate sine |
+| Cosine | Uses CMSIS DSP arm_cos_q15 function to calculate sine |
+| Triangle | Uses a discrete method to produce a triangle wave |
 | Square | Uses a discrete method to produce a square wave |
-| Sine_Fast | Uses CMSIS DSP arm_sin_q15 function to calculate sine |
-| Cosine_Fast | Uses CMSIS DSP arm_cos_q15 function to calculate cosine |
-| Triangle_Fast | Uses a discrete method to produce a triangle wave |
+| Sine_Slow | Uses C standard (slow) sin function to calculate cosine |
 
 ## **Communication**
 
 ---
 
-PuTTY is used to connect to the STM32 board via a Serial COM port connected to the LPUART peripheral and is used to communicate commands and information with the MCU.
+PuTTY can used to connect to the STM32 board via a Serial COM port connected to the LPUART peripheral and provides a text based terminal for sending commands.
 
 **Download:** [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html)
 
-Identify which COM port is used by the STLink Virtual COM Port device and connect to it at a baud rate of 4000000 (4MBaud). Force on *Local Echo* and *Local Line Editing* in the terminal emulation settings for CLI style command input.
+Identify which COM port is used by the STLink Virtual COM Port device and connect to it at a baud rate of 3953488 (~4MBaud). Force on *Local Echo* and *Local Line Editing* in the terminal emulation settings for CLI style command input.
 
 ### Implemented Commands
 
@@ -66,13 +64,32 @@ Identify which COM port is used by the STLink Virtual COM Port device and connec
 | #echo | STM32 will return "#echo echo" to confirm there is a correctly configured connection |
 | #T On | Turns Transformer DAC waveform on |
 | #T Off | Turns Transformer DAC waveform off |
-| ?T conf | Queries clock configuration for Transformer waveform |
+| #T s *shape_enum* | Changes Transformer waveform shape to given enum |
+| #T a *amplitude* | Changes Transformer waveform amplitude to given value |
+| ?T div | Queries Transformer clock divider configuration |
+| ?T spc | Queries number of 1MSPS samples per cycle |
 | #S1 On | Turns Switch 1 DAC Waveform on |
 | #S1 Off | Turns Switch 1 DAC Waveform off |
+| #S1 s *shape_enum* | Changes Switch 1 waveform shape to given enum |
+| #S1 a *amplitude* | Changes Switch 1 waveform amplitude to given value |
+| #S1 f *frequency* | Changes Switch 1 waveform frequency to given value |
+| #S1 w *width* | Changes Switch 1 burst width to given width in milliseconds |
+| #S1 c *center* | Changes Switch 1 burst center to given point in cycle |
 | #S2 On | Turns Switch 2 DAC Waveform on |
 | #S2 Off | Turns Switch 2 DAC Waveform off |
+| #S2 s *shape_enum* | Changes Switch 2 waveform shape to given enum |
+| #S2 a *amplitude* | Changes Switch 2 waveform amplitude to given value |
+| #S2 f *frequency* | Changes Switch 2 waveform frequency to given value |
+| #S2 w *width* | Changes Switch 2 burst width to given width in milliseconds |
+| #S2 c *center* | Changes Switch 2 burst center to given point in cycle |
 | #I read | Outputs a cycle's worth of ADC readings from the current sensor |
-| ?I zero | Queries average ADC reading from the current sensor for zero current |
+| ?I offset | Queries current sensor DC offset value |
+| ?I conv | Queries current sensor conversion factor between ADC reading and amps |
+| ?I pk | Queries current sensor peak amplitude over last cycle |
+| ?I rms | Queries current sensor RMS measurement over last cycle |
+| ?P duty | Queries the current duty cycle of the PWM signal |
+
+Also provided in the folder *Matlab UART* are functions to interface with the MCU in a scripted manner. Raw integer data from the MCU are stored in matlab arrays and can be graphed as neccessary.
 
 ## **Development Environment**
 
@@ -105,6 +122,6 @@ This is used for editing the source code, compiling, programming the MCU and deb
 
 Make sure the paths to each of these executables are included in the PATH environment variables to ensure they can be accessed by VSCode.
 
-### Custom Tasks
+### Static Libraries
 
-Static libraries (such as arm_cortexM4lf_math used for fast trig functions) are not currently supported by the *Stm32-for-vscode* extension. The current workaround is the modified makefile *STM32MakeWithLibs.make* which has the neccessary linker commands manually added to include the libraries required. To build using this modified makefile, run the tasks "Build STM32 project with Libraries" or "Build and flash to an STM32 platform with Libraries", listed in ~/.vscode/tasks.json .
+The static library arm_cortexM4lf_math is used for fast trig functions as part of the CMSIS DSP library. And must be added to the STM32-for-VSCode.config.yaml file to ensure proper compilation without errors.

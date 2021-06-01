@@ -24,7 +24,7 @@ extern "C" {
  */
 typedef enum{
   FluxPump_Transformer, // Expected to be a constant waveform
-  FluxPump_Switch // Expected to be a waveform burst
+  FluxPump_Switch       // Expected to be a waveform burst
 } SignalType;
 
 /**
@@ -37,9 +37,7 @@ typedef enum
   Cosine,       // Uses standard (slow) cos function to calculate cosine
   Triangle,     // Uses a continuous method using the standard (slow) trig functions
   Square,       // Uses a discrete method to produce a square wave
-  Sine_Fast,    // Uses CMSIS DSP arm_sin_q15 function to calculate sine
-  Cosine_Fast,  // Uses CMSIS DSP arm_cos_q15 function to calculate cosine
-  Triangle_Fast // Uses a discrete method to produce a triangle wave
+  Sine_Slow,    // Uses CMSIS DSP arm_sin_q15 function to calculate sine
 } WaveShape;
 
 /**
@@ -64,6 +62,17 @@ typedef enum
 } WaveformState;
 
 /**
+ * @brief Waveform Update Requests
+ */
+typedef enum
+{
+  UpToDate,
+  Update_Clocks,
+  Update_FirstHalfLUT,
+  Update_SecondHalfLUT
+} UpdateRequest;
+
+/**
   * @brief  Flux Pump Waveform Profile Structure definition
   */
 typedef struct
@@ -76,7 +85,7 @@ typedef struct
 } Profile_TypeDef;
 
 /**
-  * @brief  Flux Pump Transformer Timing Configuration Structure definition
+  * @brief  Flux Pump Signal Timing Configuration Structure definition
   */
 typedef struct
 {
@@ -87,13 +96,14 @@ typedef struct
 } Config_TypeDef;
 
 /**
-  * @brief  Flux Pump Switch Handle Structure definition
+  * @brief  Flux Pump Signal Handle Structure definition
   */
 typedef struct
 {
   SignalType              type;           // Whether the handle is for a transformer or switch signal
   Profile_TypeDef         profile;        // Current Burst Profile parameters
   Config_TypeDef          config;         // Timer configuration
+  float32_t               maxAmplitude;   // Maximum allowable amplitude
   q15_t                  *LUTLocation;    // Pointer to switch lookup table location
   uint16_t                LUTSize;        // Number of samples in the lookup table
   TIM_HandleTypeDef      *gateTIM_Handle; // Pointer to timer responsible for gate signal
@@ -101,19 +111,13 @@ typedef struct
   DAC_HandleTypeDef      *DAC_Handle;     // Pointer to DAC peripheral responsible for switch signal
   uint32_t                DAC_Channel;    // Which channel is responsible for switch signal output
   volatile WaveformState  state;          // Waveform State (running or not running)
-  volatile uint8_t        pendingRecalc;  // True when profile has changed and LUT/TIMs need updating
+  volatile UpdateRequest  updateRequest;  // True when profile has changed and LUT/TIMs need updating
 } Signal_HandleTypeDef;
 
 /* Flux Pump Signal handles --------------------------------------------------*/
 extern Signal_HandleTypeDef transformer;
 extern Signal_HandleTypeDef switch1;
 extern Signal_HandleTypeDef switch2;
-
-/* Defines -------------------------------------------------------------------*/
-#define TRANSFORMERLUT_MAXSIZE 8000
-#define SWITCH1LUT_MAXSIZE 2000
-#define SWITCH2LUT_MAXSIZE 2000
-#define SWITCH_PADDING 2
 
 /* Function Prototypes -------------------------------------------------------*/
 HAL_StatusTypeDef initSignal(SignalType type, Signal_HandleTypeDef *sig, void *callback1, void *callback2);

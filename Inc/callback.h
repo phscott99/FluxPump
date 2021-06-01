@@ -22,9 +22,8 @@ extern volatile uint8_t transHalfDMA_Flag;
 extern volatile uint8_t transFullDMA_Flag;
 extern volatile uint8_t switch1Cplt_Flag;
 extern volatile uint8_t switch2Cplt_Flag;
-volatile uint8_t currentHalfDMA_Flag;
-volatile uint8_t currentFullDMA_Flag;
-volatile uint8_t currentReadFlag;
+extern volatile uint8_t currentHalfDMA_Flag;
+extern volatile uint8_t currentFullDMA_Flag;
 extern volatile uint8_t commandReceived_Flag;
 
 /* Function Prototypes -------------------------------------------------------*/

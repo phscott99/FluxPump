@@ -38,8 +38,15 @@ DMA_HandleTypeDef hdma_lpuart1_tx;
 void MX_LPUART1_UART_Init(void)
 {
 
+  /* USER CODE BEGIN LPUART1_Init 0 */
+
+  /* USER CODE END LPUART1_Init 0 */
+
+  /* USER CODE BEGIN LPUART1_Init 1 */
+
+  /* USER CODE END LPUART1_Init 1 */
   hlpuart1.Instance = LPUART1;
-  hlpuart1.Init.BaudRate = 4000000;
+  hlpuart1.Init.BaudRate = 3953488;
   hlpuart1.Init.WordLength = UART_WORDLENGTH_9B;
   hlpuart1.Init.StopBits = UART_STOPBITS_1;
   hlpuart1.Init.Parity = UART_PARITY_EVEN;
@@ -64,6 +71,9 @@ void MX_LPUART1_UART_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN LPUART1_Init 2 */
+
+  /* USER CODE END LPUART1_Init 2 */
 
 }
 

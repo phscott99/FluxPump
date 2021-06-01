@@ -33,8 +33,16 @@ DMA_HandleTypeDef hdma_dac2_ch1;
 /* DAC1 init function */
 void MX_DAC1_Init(void)
 {
+
+  /* USER CODE BEGIN DAC1_Init 0 */
+
+  /* USER CODE END DAC1_Init 0 */
+
   DAC_ChannelConfTypeDef sConfig = {0};
 
+  /* USER CODE BEGIN DAC1_Init 1 */
+
+  /* USER CODE END DAC1_Init 1 */
   /** DAC Initialization
   */
   hdac1.Instance = DAC1;
@@ -46,7 +54,7 @@ void MX_DAC1_Init(void)
   */
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
   sConfig.DAC_DMADoubleDataMode = DISABLE;
-  sConfig.DAC_SignedFormat = DISABLE;
+  sConfig.DAC_SignedFormat = ENABLE;
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T3_TRGO;
   sConfig.DAC_Trigger2 = DAC_TRIGGER_NONE;
@@ -60,18 +68,28 @@ void MX_DAC1_Init(void)
   /** DAC channel OUT2 config
   */
   sConfig.DAC_Trigger = DAC_TRIGGER_T4_TRGO;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN DAC1_Init 2 */
+
+  /* USER CODE END DAC1_Init 2 */
 
 }
 /* DAC2 init function */
 void MX_DAC2_Init(void)
 {
+
+  /* USER CODE BEGIN DAC2_Init 0 */
+
+  /* USER CODE END DAC2_Init 0 */
+
   DAC_ChannelConfTypeDef sConfig = {0};
 
+  /* USER CODE BEGIN DAC2_Init 1 */
+
+  /* USER CODE END DAC2_Init 1 */
   /** DAC Initialization
   */
   hdac2.Instance = DAC2;
@@ -83,7 +101,7 @@ void MX_DAC2_Init(void)
   */
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
   sConfig.DAC_DMADoubleDataMode = DISABLE;
-  sConfig.DAC_SignedFormat = DISABLE;
+  sConfig.DAC_SignedFormat = ENABLE;
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T15_TRGO;
   sConfig.DAC_Trigger2 = DAC_TRIGGER_NONE;
@@ -94,6 +112,9 @@ void MX_DAC2_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN DAC2_Init 2 */
+
+  /* USER CODE END DAC2_Init 2 */
 
 }
 
@@ -284,13 +305,13 @@ HAL_StatusTypeDef forceDACOutput(DAC_HandleTypeDef *hdac, uint32_t Channel, floa
   if (Channel == DAC_CHANNEL_1)
   {
     MODIFY_REG(hdac->Instance->CR, DAC_CR_TSEL1, DAC_CR_TEN1);
-    WRITE_REG(hdac->Instance->DHR12R1, value);
+    WRITE_REG(hdac->Instance->DHR12L1, value);
     SET_BIT(hdac->Instance->SWTRIGR, DAC_SWTRIGR_SWTRIG1);
   }
   else
   {
     MODIFY_REG(hdac->Instance->CR, DAC_CR_TSEL2, DAC_CR_TEN2);
-    WRITE_REG(hdac->Instance->DHR12R2, value);
+    WRITE_REG(hdac->Instance->DHR12L2, value);
     SET_BIT(hdac->Instance->SWTRIGR, DAC_SWTRIGR_SWTRIG2);
   }
   //HAL_Delay(1);

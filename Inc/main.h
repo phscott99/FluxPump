@@ -21,7 +21,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "defaults.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -36,7 +36,6 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-// Calculate prescaler required to clock DACs at maximum sample rate
 
 /* USER CODE END EM */
 
@@ -66,7 +65,7 @@ void Error_Handler(void);
 #define T_SWO_Pin GPIO_PIN_3
 #define T_SWO_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-
+#define ARM_MATH_CM4 // Declare Cortex-M4 Architecture for ARM CMSIS Library
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -1,13 +1,16 @@
 {
     "stm32-for-vscode.openOCDPath": "openocd",
     "stm32-for-vscode.makePath": "make",
-    "stm32-for-vscode.armToolchainPath": "",
-    "cortex-debug.armToolchainPath": "",
+    "stm32-for-vscode.armToolchainPath": "C:\\PROGRAM FILES (X86)\\GNU ARM EMBEDDED TOOLCHAIN\\9 2020-Q2-UPDATE\\BIN",
+    "cortex-debug.armToolchainPath": "C:\\PROGRAM FILES (X86)\\GNU ARM EMBEDDED TOOLCHAIN\\9 2020-Q2-UPDATE\\BIN",
     "files.associations": {
         "cmath": "c",
         "type_traits": "c",
         "cstdio": "cpp",
         "adc.h": "c",
-        "arm_math.h": "c"
-    }
+        "arm_math.h": "c",
+        "retarget.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Enabled",
+    "cortex-debug.openocdPath": "openocd"
 }

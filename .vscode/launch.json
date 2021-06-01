@@ -27,8 +27,7 @@
             "preLaunchTask": "Build STM",
             "device": "stlink",
             "configFiles": [
-                "interface/stlink.cfg",
-                "target/stm32g4x.cfg"
+                "openocd.cfg"
             ]
         }
     ]

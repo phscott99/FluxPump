@@ -121,3 +121,15 @@ build/usart.o
 build/Retarget.d
 build/Retarget.lst
 build/Retarget.o
+build/opamp.d
+build/opamp.lst
+build/stm32g4xx_hal_opamp_ex.d
+build/stm32g4xx_hal_opamp_ex.lst
+build/stm32g4xx_hal_opamp_ex.o
+build/stm32g4xx_hal_opamp.d
+build/stm32g4xx_hal_opamp.lst
+build/stm32g4xx_hal_opamp.o
+build/opamp.o
+build/sensor.d
+build/sensor.lst
+build/sensor.o

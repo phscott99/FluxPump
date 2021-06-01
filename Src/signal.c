@@ -10,18 +10,58 @@
 #include "signal.h"
 #include "callback.h"
 #include "dac.h"
+#include "defaults.h"
+#include "tim.h"
 
 /* Variables -----------------------------------------------------------------*/
-Signal_HandleTypeDef transformer;
-Signal_HandleTypeDef switch1;
-Signal_HandleTypeDef switch2;
+q15_t transformerLUT[TRANSFORMERLUT_MAXSIZE];
+q15_t switch1LUT[SWITCHLUT_MAXSIZE + SWITCH_PADDING];
+q15_t switch2LUT[SWITCHLUT_MAXSIZE + SWITCH_PADDING];
+
+Signal_HandleTypeDef transformer = {
+  .LUTLocation = transformerLUT,
+  .gateTIM_Handle = &htim2,
+  .trigTIM_Handle = &htim15,
+  .DAC_Handle = &hdac2,
+  .DAC_Channel = DAC_CHANNEL_1,
+  .profile.frequency = DEF_TRANSFREQUENCY,
+  .profile.amplitude = DEF_TRANSAMPLITUDE,
+  .profile.shape = DEF_TRANSSHAPE,
+  .maxAmplitude = DEF_TRANSMAXAMPLITUDE
+};
+Signal_HandleTypeDef switch1 = {
+  .LUTLocation = switch1LUT,
+  .gateTIM_Handle = &htim2,
+  .trigTIM_Handle = &htim3,
+  .DAC_Handle = &hdac1,
+  .DAC_Channel = DAC_CHANNEL_1,
+  .profile.frequency = DEF_SW1FREQUENCY,
+  .profile.amplitude = DEF_SW1AMPLITUDE,
+  .profile.width = DEF_SW1WIDTH,
+  .profile.center = DEF_SW1CENTER,
+  .profile.shape = DEF_SW1SHAPE,
+  .maxAmplitude = DEF_SW1MAXAMPLITUDE
+};
+Signal_HandleTypeDef switch2 = {
+  .LUTLocation = switch2LUT,
+  .gateTIM_Handle = &htim5,
+  .trigTIM_Handle = &htim4,
+  .DAC_Handle = &hdac1,
+  .DAC_Channel = DAC_CHANNEL_2,
+  .profile.frequency = DEF_SW2FREQUENCY,
+  .profile.amplitude = DEF_SW2AMPLITUDE,
+  .profile.width = DEF_SW2WIDTH,
+  .profile.center = DEF_SW2CENTER,
+  .profile.shape = DEF_SW2SHAPE,
+  .maxAmplitude = DEF_SW2MAXAMPLITUDE
+};
 
 volatile uint8_t fluxpumpRunning; // True if synchronised clocks for DMA are running
 
 /* Functions -----------------------------------------------------------------*/
 
 /**
-  * @brief  Initialises Signal Handle type and registers neccessary callback functions for signals
+  * @brief  Initialises Signal Handle type and registers neccessary callback functions
   * @param  type      Defines whether the signal is a transformer or switch type
   * @param  sig       Signal Handle to be initialised
   * @param  callback1 Callback function to be carried out halfway through a LUT pass
@@ -40,7 +80,7 @@ HAL_StatusTypeDef initSignal(SignalType type, Signal_HandleTypeDef *sig, void *c
       break;
     case FluxPump_Switch:
       sig->type = FluxPump_Switch;  // Set type in Signal Handle Structure
-      HAL_TIM_RegisterCallback(sig->gateTIM_Handle, HAL_TIM_PWM_PULSE_FINISHED_CB_ID, (pTIM_CallbackTypeDef)callback2); // DAC DMA Transfer Complete Flag
+      HAL_TIM_RegisterCallback(sig->gateTIM_Handle, HAL_TIM_PWM_PULSE_FINISHED_CB_ID, (pTIM_CallbackTypeDef)callback2); // DAC Switch Burst Finished Flag
       break;
     default:
       return HAL_ERROR;
@@ -63,6 +103,7 @@ HAL_StatusTypeDef configSignal(SignalType type, Signal_HandleTypeDef *trans, Sig
   switch(type) // Perform different tasks, depending on whether the signal to configure is a transformer or switch
   {
     case FluxPump_Transformer:
+      trans->updateRequest = Update_FirstHalfLUT; // Clear request for reconfiguration
       trans->config.divider = ceil(DAC_MAXSAMPLERATE/(trans->profile.frequency*TRANSFORMERLUT_MAXSIZE)); // What prescale from 1MHz is needed to fit one transformer cycle in LUT
       switch(trans->config.divider % 4)
       { // We want transformerDivider * transformerLUTSize to have 4 as a factor
@@ -109,19 +150,24 @@ HAL_StatusTypeDef configSignal(SignalType type, Signal_HandleTypeDef *trans, Sig
       trans->profile.frequency = (float32_t)DAC_MAXSAMPLERATE/trans->config.samplesPerCycle; // new, adjusted transformer frequency
       break;
     case FluxPump_Switch:
+      sw1->updateRequest = Update_FirstHalfLUT; // Clear request for reconfiguration
       sw1->config.numHalfCycles = floor(sw1->profile.width*sw1->profile.frequency*2); // number of half cycles to fit in desired burst length
       sw1->profile.width = sw1->config.numHalfCycles/(2*sw1->profile.frequency);  // new, adjusted burst length
-      sw1->LUTSize = 2*floor(sw1->profile.width * DAC_MAXSAMPLERATE/2); // LUT size must be cleanly divisible by 2
+      sw1->config.divider = ceil(sw1->profile.width*DAC_MAXSAMPLERATE/SWITCHLUT_MAXSIZE); // What prescale from 1MHz is needed to fit burst in LUT
+      sw1->LUTSize = 2*floor(sw1->profile.width * DAC_MAXSAMPLERATE/(2*sw1->config.divider)); // LUT size must be cleanly divisible by 2
+
+      sw1->trigTIM_Handle->Init.Prescaler = sw1->config.divider - 1; // Set Switch DAC Trigger Timer Prescaler
+      if (HAL_TIM_Base_Init(sw1->trigTIM_Handle) != HAL_OK) Error_Handler();
       
-      sw1->config.startPoint = round((trans->config.samplesPerCycle*sw1->profile.center - sw1->LUTSize/2));// + (trans->config.divider - 2));      // Number of 1MHz samples from start of cycle to start of burst
+      sw1->config.startPoint = round((trans->config.samplesPerCycle*sw1->profile.center - sw1->LUTSize*sw1->config.divider/2)); // Number of 1MHz samples from start of cycle to start of burst
       
-      sConfigOC.OCMode = TIM_OCMODE_COMBINED_PWM2; // OC Channels 1 and 2 of gate clocks are configured in assymetric PWM mode
+      sConfigOC.OCMode = TIM_OCMODE_COMBINED_PWM2; // OC Channels 1 and 2 of gate clocks are configured in combined PWM mode
       sConfigOC.Pulse = sw1->config.startPoint; // Gate signal goes high at start of burst
       sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
       sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
       if (HAL_TIM_PWM_ConfigChannel(sw1->gateTIM_Handle, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) Error_Handler();
       sConfigOC.OCMode = TIM_OCMODE_PWM1;
-      sConfigOC.Pulse = sw1->config.startPoint + sw1->LUTSize + SWITCH_PADDING; // Gate signal goes low at end of burst
+      sConfigOC.Pulse = sw1->config.startPoint + (sw1->LUTSize + SWITCH_PADDING) * sw1->config.divider; // Gate signal goes low at end of burst
       if (HAL_TIM_PWM_ConfigChannel(sw1->gateTIM_Handle, &sConfigOC, TIM_CHANNEL_2) != HAL_OK) Error_Handler();
 
       break;
@@ -145,12 +191,12 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
   uint16_t size = sig->LUTSize;
   uint16_t numHalfCycles = sig->config.numHalfCycles;
   float32_t freq = sig->profile.frequency;
-  float32_t amp = sig->profile.amplitude;
+  uint16_t div = sig->config.divider;
+  float32_t amp = sig->profile.amplitude/sig->maxAmplitude;
 
   /* Extra variables for pre-calculation (helps with speed)*/
   float32_t T;
   float32_t a;
-  q15_t o;
   uint16_t m;
   uint16_t start = 0, end = 0;
 
@@ -159,14 +205,17 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
     case LUT_All:
       start = 0;
       end = size;
+      sig->updateRequest = UpToDate; // Clear request for recalculation
       break;
     case LUT_FirstHalf:
       start = 0;
       end = size/2;
+      sig->updateRequest = Update_SecondHalfLUT; // Clear request for recalculation
       break;
     case LUT_SecondHalf:
       start = size/2;
       end = size;
+      sig->updateRequest = UpToDate; // Clear request for recalculation
       break;
   }
 
@@ -176,69 +225,43 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
       switch(sig->profile.shape)
       { // Chose from a range of different wave shapes (see WaveShape enum for brief description)
         case Constant:
-          a = DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2;
-          for(int i = start; i < end; i++) loc[i] = (int)a;
-          break;
-        case Sine:
-          for(int i = start; i < end; i++) loc[i] = lroundf(DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2*sin(2*M_PI*i/size));
-          break;
-        case Cosine:
-          for(int i = start; i < end; i++) loc[i] = lroundf(DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2*cos(2*M_PI*i/size));
-          break;
-        case Triangle: // Continuous equation for calculation of a triangle wave
-          for(int i = start; i < end; i++) loc[i] = lroundf(DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/M_PI*asin(sin(2*M_PI*i/size)));
+          arm_fill_q15((q15_t)lroundf(amp*DAC_FULLSCALE), &loc[start], end-start);
           break;
         case Square:
-          a = DAC_FULLSCALE/2 - amp*DAC_FULLSCALE/2;
-          T = DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2;
-          if((section == LUT_All) | (section == LUT_FirstHalf))
-          {
-            for(int i = 0; i < size/4; i++) loc[i] = (int)a;
-            for(int i = size/4; i < size/2; i++) loc[i] = (int)T;
-          }
-          if((section == LUT_All) | (section == LUT_SecondHalf))
-          {
-            for(int i = size/2; i < (size*3)/4; i++) loc[i] = (int)T;
-            for(int i = (size*3)/4; i < size; i++) loc[i] = (int)a;
-          }
+          if((section == LUT_All) | (section == LUT_FirstHalf)) arm_fill_q15((q15_t)lroundf(amp*DAC_FULLSCALE), loc, size/2);
+          if((section == LUT_All) | (section == LUT_SecondHalf)) arm_fill_q15((q15_t)lroundf(-amp*DAC_FULLSCALE), &loc[size/2], size/2);
           break;
-        case Sine_Fast:
+        case Sine:
           T = (float32_t)32768/size;
-          a = amp * (DAC_FULLSCALE/2);
-          o = DAC_FULLSCALE/2;
-
+          a = amp * DAC_FULLSCALE;
           for(int i = start; i < end; i++) loc[i] = arm_sin_q15(i*T);
-          arm_scale_q15(loc + start, a, 0, loc, (end-start));
-          arm_offset_q15(loc + start, o, loc, (end-start));
+          arm_scale_q15(loc + start, a, 0, loc + start, (end-start));
           break;
-        case Cosine_Fast:
+        case Cosine:
           T = (float32_t)32768/size;
-          a = amp * (DAC_FULLSCALE/2);
-          o = DAC_FULLSCALE/2;
-
+          a = amp * DAC_FULLSCALE;
           for(int i = start; i < end; i++) loc[i] = arm_cos_q15(i*T);
-          arm_scale_q15(loc + start, a, 0, loc, (end-start));
-          arm_offset_q15(loc + start, o, loc, (end-start));
+          arm_scale_q15(loc + start, a, 0, loc + start, (end-start));
           break;
-        case Triangle_Fast:
-          T = (2*DAC_FULLSCALE*amp)/size;
+        case Triangle:
+          T = (4*DAC_FULLSCALE*amp)/size;
           if((section == LUT_All) | (section == LUT_FirstHalf))
           {
-            a = DAC_FULLSCALE/2;
+            a = 0;
             m =  0;
             for(int i = 0; i < size/4; i++) loc[i] = (int)(a + (i-m)*T);
 
-            a = DAC_FULLSCALE/2 + (T*size)/4;
+            a = (T*size)/4;
             m = size/4;
             for(int i = size/4; i < size/2; i++) loc[i] = (int)(a - (i-m)*T);
           }
           if((section == LUT_All) | (section == LUT_SecondHalf))
           {
-            a = DAC_FULLSCALE/2 + (T*size)/4;
+            a = (T*size)/4;
             m = size/4;
             for(int i = size/2; i < (size*3)/4; i++) loc[i] = (int)(a - (i-m)*T);
 
-            a = DAC_FULLSCALE/2 - (T*size)/4;
+            a = -(T*size)/4;
             m = (size*3)/4;      
             for(int i = (size*3)/4; i < size; i++) loc[i] = (int)(a + (i-m)*T);
           }
@@ -252,21 +275,18 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
       switch(sig->profile.shape)
       {
         case Constant:
-          a = DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2;
-          for(int i = 0; i < size; i++) loc[i] = (int)a;
+          arm_fill_q15((q15_t)lroundf(amp*DAC_FULLSCALE), &loc[start], end-start);
           break;
-        case Sine: // Fits the appropriate number of sinusoidal half cycles into the desired burst width
+        case Sine_Slow: // Fits the appropriate number of sinusoidal half cycles into the desired burst width
           // If even number of half cycles, use sine
-          if (numHalfCycles % 2 == 0) for(int i = -size/2; i < size/2; i++) loc[i + size/2] = lroundf(DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2*sin(i*2*M_PI*freq/DAC_MAXSAMPLERATE));
+          if (numHalfCycles % 2 == 0) for(int i = -size/2; i < size/2; i++) loc[i + size/2] = lroundf(amp*DAC_FULLSCALE*sin(i*2*M_PI*freq*div/DAC_MAXSAMPLERATE));
           // Else odd number of half cycles, use cosine
-          else for(int i = -size/2; i < size/2; i++) loc[i + size/2] = lroundf(DAC_FULLSCALE/2 + amp*DAC_FULLSCALE/2*cos(i*2*M_PI*freq/DAC_MAXSAMPLERATE));
+          else for(int i = -size/2; i < size/2; i++) loc[i + size/2] = lroundf(amp*DAC_FULLSCALE*cos(i*2*M_PI*freq*div/DAC_MAXSAMPLERATE));
           break;
-        case Sine_Fast: // Fits the appropriate number of sinusoidal half cycles into the desired burst width (using fast trig functions)
-          T = (32768*freq)/DAC_MAXSAMPLERATE;
-          a = amp * (DAC_FULLSCALE/2);
-          o = DAC_FULLSCALE/2;
+        case Sine: // Fits the appropriate number of sinusoidal half cycles into the desired burst width (using fast trig functions)
+          T = (32768*freq*div)/DAC_MAXSAMPLERATE;
+          a = amp * DAC_FULLSCALE;
           m = size/2;
-          
           // If even number of half cycles, use sine
           if (numHalfCycles % 2 == 0) for(int i = 0; i <= m; i++) {
             loc[m + i] = arm_sin_q15((uint16_t)(i*T) % 32768);
@@ -277,9 +297,7 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
             loc[m + i] = arm_cos_q15((uint16_t)(i*T) % 32768);
             loc[m - i] = arm_cos_q15((uint16_t)(i*T) % 32768);
           }
-
           arm_scale_q15(loc, a, 0, loc, size);
-          arm_offset_q15(loc, o, loc, size);
           break;
         default:
           return HAL_ERROR;
@@ -287,7 +305,7 @@ HAL_StatusTypeDef calcSignal(Signal_HandleTypeDef *sig, LUTSection section)
       }
       
       // Padding values at end of LUT are needed to ensure there is no DC between bursts
-      for (int i = 0; i < SWITCH_PADDING; i++) loc[size + i] = lroundf(DAC_FULLSCALE/2);
+      for (int i = 0; i < SWITCH_PADDING; i++) loc[size + i] = 0;
       break;
     default:
       return HAL_ERROR;

@@ -18,7 +18,6 @@ volatile uint8_t switch1Cplt_Flag = 0;
 volatile uint8_t switch2Cplt_Flag = 0;
 volatile uint8_t currentHalfDMA_Flag = 0;
 volatile uint8_t currentFullDMA_Flag = 0;
-volatile uint8_t currentReadFlag = 0;
 volatile uint8_t commandReceived_Flag = 0;
 
 /* Functions -----------------------------------------------------------------*/
@@ -36,7 +35,7 @@ void preCycleStartCallback(TIM_HandleTypeDef *htim)
 {
   if ((htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) & (transformer.state == Waveform_Request_On))
   {
-    HAL_DAC_Start_DMA_NB(transformer.DAC_Handle, transformer.DAC_Channel, (uint32_t*)transformer.LUTLocation, transformer.LUTSize, DAC_ALIGN_12B_R);
+    HAL_DAC_Start_DMA_NB(transformer.DAC_Handle, transformer.DAC_Channel, (uint32_t*)transformer.LUTLocation, transformer.LUTSize, DAC_ALIGN_12B_L);
     transformer.state = Waveform_On;
   }
 }
